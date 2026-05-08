@@ -23,9 +23,10 @@ RUN pip install --upgrade pip \
 # =============================================================================
 FROM python:3.11-slim AS runtime
 
-# Copy ffmpeg binary from builder
-COPY --from=builder /usr/bin/ffmpeg /usr/bin/ffmpeg
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libav* /usr/lib/x86_64-linux-gnu/
+# Install ffmpeg natively for Whisper
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy installed Python packages
 COPY --from=builder /install /usr/local
