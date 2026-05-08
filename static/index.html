@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Chatbot — Web Widget</title>
+  <style>
+    /* ─── Reset & Base ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0f0f13;
+      --surface:    #1a1a24;
+      --border:     #2a2a3a;
+      --accent:     #6c63ff;
+      --accent-dim: #4c44cc;
+      --user-bg:    #6c63ff;
+      --bot-bg:     #22223a;
+      --text:       #e8e8f0;
+      --text-muted: #8888aa;
+      --radius:     14px;
+      --font:       'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ─── Chat Container ────────────────────────────────────────────────── */
+    .chat-shell {
+      width: min(520px, 100vw);
+      height: min(720px, 100dvh);
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+    }
+
+    /* ─── Header ────────────────────────────────────────────────────────── */
+    .chat-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #ff6ccc);
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .header-info h2 { font-size: 15px; font-weight: 600; }
+    .header-info p  { font-size: 12px; color: var(--text-muted); }
+
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #22dd88;
+      margin-left: auto;
+      animation: pulse 2s infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    /* ─── Messages ──────────────────────────────────────────────────────── */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      scroll-behavior: smooth;
+    }
+
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .msg {
+      display: flex;
+      gap: 8px;
+      max-width: 90%;
+      animation: fadeUp 0.2s ease;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg.user  { align-self: flex-end; flex-direction: row-reverse; }
+    .msg.bot   { align-self: flex-start; }
+
+    .msg-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: grid; place-items: center; font-size: 14px;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .msg.bot  .msg-avatar { background: var(--accent); }
+    .msg.user .msg-avatar { background: #444; }
+
+    .bubble {
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.55;
+      max-width: 100%;
+      word-break: break-word;
+    }
+    .msg.user .bubble { background: var(--user-bg); color: #fff; border-bottom-right-radius: 4px; }
+    .msg.bot  .bubble { background: var(--bot-bg);  color: var(--text); border-bottom-left-radius: 4px; }
+
+    .bubble .provider {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Typing indicator */
+    .typing-indicator { display: none; }
+    .typing-indicator.visible { display: flex; }
+    .typing-dots { display: flex; gap: 4px; padding: 4px 0; }
+    .typing-dots span {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted);
+      animation: bounce 1.2s infinite;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); }
+      40%            { transform: translateY(-6px); }
+    }
+
+    /* ─── Connection toggle ─────────────────────────────────────────────── */
+    .mode-bar {
+      display: flex;
+      gap: 8px;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .mode-btn {
+      padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border);
+      background: transparent; color: var(--text-muted); cursor: pointer; font-size: 12px;
+      transition: all 0.15s;
+    }
+    .mode-btn.active {
+      background: var(--accent); border-color: var(--accent); color: #fff;
+    }
+
+    /* ─── Input area ────────────────────────────────────────────────────── */
+    .input-area {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    textarea {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font: 14px var(--font);
+      padding: 10px 12px;
+      resize: none;
+      min-height: 42px;
+      max-height: 120px;
+      outline: none;
+      transition: border-color 0.15s;
+      line-height: 1.4;
+    }
+    textarea:focus { border-color: var(--accent); }
+    textarea::placeholder { color: var(--text-muted); }
+
+    .send-btn {
+      width: 42px; height: 42px;
+      border-radius: 10px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .send-btn:hover    { background: var(--accent-dim); }
+    .send-btn:active   { transform: scale(0.95); }
+    .send-btn:disabled { background: var(--border); cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+<div class="chat-shell">
+  <!-- Header -->
+  <div class="chat-header">
+    <div class="avatar">🤖</div>
+    <div class="header-info">
+      <h2>AI Assistant</h2>
+      <p id="subtitle">Powered by LangGraph · Groq / Gemini</p>
+    </div>
+    <div class="status-dot" id="statusDot"></div>
+  </div>
+
+  <!-- Mode toggle (REST vs WebSocket) -->
+  <div class="mode-bar">
+    <span style="color:var(--text-muted);line-height:26px;">Transport:</span>
+    <button class="mode-btn active" id="btnRest" onclick="setMode('rest')">REST</button>
+    <button class="mode-btn" id="btnWs" onclick="setMode('ws')">WebSocket</button>
+  </div>
+
+  <!-- Message list -->
+  <div class="messages" id="messages">
+    <div class="msg bot">
+      <div class="msg-avatar">🤖</div>
+      <div class="bubble">
+        👋 Hello! I'm your AI assistant. Type a message or question below to get started.<br><br>
+        <span style="font-size:12px;color:var(--text-muted)">Tip: Switch to WebSocket mode for real-time streaming.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Typing indicator -->
+  <div class="msg bot typing-indicator" id="typingIndicator" style="padding:0 16px 8px;">
+    <div class="msg-avatar">🤖</div>
+    <div class="bubble">
+      <div class="typing-dots">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-area">
+    <textarea
+      id="inputBox"
+      rows="1"
+      placeholder="Type a message…"
+      onkeydown="handleKey(event)"
+      oninput="autoResize(this)"
+    ></textarea>
+    <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send">➤</button>
+  </div>
+</div>
+
+<script>
+  // ──────────────────────────────────────────────────────────────────────────
+  // State
+  // ──────────────────────────────────────────────────────────────────────────
+  const SESSION_ID = 'web-' + Math.random().toString(36).slice(2, 11);
+  let mode = 'rest';   // 'rest' | 'ws'
+  let ws = null;
+  let busy = false;
+
+  const API_BASE = window.location.origin;   // Same origin as the FastAPI server
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Mode toggle
+  // ──────────────────────────────────────────────────────────────────────────
+  function setMode(m) {
+    mode = m;
+    document.getElementById('btnRest').classList.toggle('active', m === 'rest');
+    document.getElementById('btnWs').classList.toggle('active', m === 'ws');
+
+    if (m === 'ws') {
+      connectWs();
+    } else {
+      if (ws) { ws.close(); ws = null; }
+    }
+  }
+
+  function connectWs() {
+    if (ws) ws.close();
+    const wsUrl = API_BASE.replace(/^http/, 'ws') + `/ws/${SESSION_ID}`;
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen  = () => updateStatus(true, 'WebSocket connected');
+    ws.onclose = () => { updateStatus(false, 'Disconnected — retrying…'); setTimeout(connectWs, 3000); };
+    ws.onerror = (e) => console.error('WS error', e);
+
+    ws.onmessage = (evt) => {
+      const data = JSON.parse(evt.data);
+      hideTyping();
+      appendMessage('bot', data.reply || data.error || 'No response.', data.provider);
+      setBusy(false);
+    };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Send message
+  // ──────────────────────────────────────────────────────────────────────────
+  async function sendMessage() {
+    const input = document.getElementById('inputBox');
+    const text = input.value.trim();
+    if (!text || busy) return;
+
+    input.value = '';
+    autoResize(input);
+    appendMessage('user', text);
+    showTyping();
+    setBusy(true);
+
+    if (mode === 'ws') {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        connectWs();
+        await new Promise(r => setTimeout(r, 500));
+      }
+      ws.send(text);
+    } else {
+      await sendRest(text);
+    }
+  }
+
+  async function sendRest(text) {
+    try {
+      const resp = await fetch(`${API_BASE}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: SESSION_ID, text }),
+      });
+
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      hideTyping();
+      appendMessage('bot', data.reply, data.provider);
+    } catch (err) {
+      hideTyping();
+      appendMessage('bot', `⚠️ Error: ${err.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // DOM helpers
+  // ──────────────────────────────────────────────────────────────────────────
+  function appendMessage(role, text, provider = null) {
+    const container = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+
+    const avatarEmoji = role === 'bot' ? '🤖' : '🧑';
+    const providerBadge = (role === 'bot' && provider)
+      ? `<div class="provider">⚡ ${provider}</div>` : '';
+
+    div.innerHTML = `
+      <div class="msg-avatar">${avatarEmoji}</div>
+      <div class="bubble">${escapeHtml(text)}${providerBadge}</div>
+    `;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function showTyping() {
+    document.getElementById('typingIndicator').classList.add('visible');
+    const c = document.getElementById('messages');
+    c.scrollTop = c.scrollHeight;
+  }
+  function hideTyping() {
+    document.getElementById('typingIndicator').classList.remove('visible');
+  }
+
+  function setBusy(b) {
+    busy = b;
+    document.getElementById('sendBtn').disabled = b;
+    document.getElementById('inputBox').disabled = b;
+  }
+
+  function updateStatus(online, label) {
+    document.getElementById('statusDot').style.background = online ? '#22dd88' : '#dd4444';
+    document.getElementById('subtitle').textContent = label;
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\n/g, '<br>');
+  }
+</script>
+</body>
+</html>

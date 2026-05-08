@@ -1,0 +1,28 @@
+{
+  "python.defaultInterpreterPath": "/usr/local/bin/python",
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.autoImportCompletions": true,
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "ms-python.black-formatter",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.tabSize": 4
+  },
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.env": true
+  },
+  "files.watcherExclude": {
+    "**/data/**": true
+  },
+  "docker.defaultRegistryPath": "",
+  "terminal.integrated.env.linux": {
+    "PYTHONPATH": "${workspaceFolder}"
+  },
+  "rest-client.environmentVariables": {
+    "local": {
+      "baseUrl": "http://localhost:8000"
+    }
+  }
+}

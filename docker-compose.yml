@@ -1,0 +1,88 @@
+# =============================================================================
+# Shared Networks & Volumes
+# =============================================================================
+networks:
+  chatbot-net:
+    driver: bridge
+
+volumes:
+  sqlite-data:       # Persistent SQLite DB files
+  chroma-data:       # ChromaDB persistent storage
+  whisper-models:    # Cached Whisper model weights (avoid re-download)
+
+# =============================================================================
+# Services
+# =============================================================================
+services:
+
+  # ---------------------------------------------------------------------------
+  # ChromaDB — Local Vector Database
+  # ---------------------------------------------------------------------------
+  chromadb:
+    image: chromadb/chroma:0.5.4
+    container_name: chatbot-chromadb
+    restart: unless-stopped
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+    volumes:
+      - chroma-data:/chroma/chroma
+    ports:
+      - "8001:8000"
+    networks:
+      - chatbot-net
+
+  # ---------------------------------------------------------------------------
+  # FastAPI Application
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: chatbot-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Overrides to point at Docker service names (not localhost)
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - SQLITE_PATH=/app/data/sqlite/chatbot.db
+      - WHISPER_MODEL_DIR=/app/data/whisper_models
+    volumes:
+      - sqlite-data:/app/data/sqlite
+      - whisper-models:/app/data/whisper_models
+      # Hot-reload mount for development (comment out in production)
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - chromadb
+    networks:
+      - chatbot-net
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')\""]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # (Optional) ngrok — expose local webhooks to the internet for development
+  # Uncomment when testing Telegram webhooks locally.
+  # ---------------------------------------------------------------------------
+  # ngrok:
+  #   image: ngrok/ngrok:latest
+  #   container_name: chatbot-ngrok
+  #   environment:
+  #     - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+  #   command: http app:8000 --log=stdout
+  #   ports:
+  #     - "4040:4040"   # ngrok web UI
+  #   depends_on:
+  #     - app
+  #   networks:
+  #     - chatbot-net
