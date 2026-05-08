@@ -82,6 +82,7 @@ class WebChatResponse(BaseModel):
     session_id: str
     reply: str
     provider: Optional[str] = None
+    transcript: Optional[str] = None
 
 
 # =============================================================================

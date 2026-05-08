@@ -213,6 +213,30 @@
     .send-btn:hover    { background: var(--accent-dim); }
     .send-btn:active   { transform: scale(0.95); }
     .send-btn:disabled { background: var(--border); cursor: not-allowed; }
+
+    .mic-btn {
+      width: 42px; height: 42px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .mic-btn:hover { background: var(--border); color: #fff; }
+    .mic-btn.recording {
+      background: #dd4444; color: #fff; border-color: #dd4444;
+      animation: pulseRecord 1.5s infinite;
+    }
+    @keyframes pulseRecord {
+      0% { box-shadow: 0 0 0 0 rgba(221, 68, 68, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(221, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(221, 68, 68, 0); }
+    }
   </style>
 </head>
 <body>
@@ -265,6 +289,7 @@
       onkeydown="handleKey(event)"
       oninput="autoResize(this)"
     ></textarea>
+    <button class="mic-btn" id="micBtn" onclick="toggleMic()" title="Record Voice">🎤</button>
     <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send">➤</button>
   </div>
 </div>
@@ -277,6 +302,9 @@
   let mode = 'rest';   // 'rest' | 'ws'
   let ws = null;
   let busy = false;
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let isRecording = false;
 
   const API_BASE = window.location.origin;   // Same origin as the FastAPI server
 
@@ -352,6 +380,84 @@
     } catch (err) {
       hideTyping();
       appendMessage('bot', `⚠️ Error: ${err.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Voice Recording (MediaRecorder)
+  // ──────────────────────────────────────────────────────────────────────────
+  async function toggleMic() {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      await startRecording();
+    }
+  }
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+
+      mediaRecorder.ondataavailable = e => {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        stream.getTracks().forEach(t => t.stop());
+        await sendAudioRest(audioBlob);
+      };
+
+      mediaRecorder.start();
+      isRecording = true;
+      document.getElementById('micBtn').classList.add('recording');
+      document.getElementById('inputBox').placeholder = "Recording voice...";
+    } catch (err) {
+      alert("Could not access microphone: " + err.message);
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+    isRecording = false;
+    document.getElementById('micBtn').classList.remove('recording');
+    document.getElementById('inputBox').placeholder = "Type a message…";
+  }
+
+  async function sendAudioRest(audioBlob) {
+    if (busy) return;
+    setBusy(true);
+    showTyping();
+    // We don't have the user's text yet, we'll append it when the backend replies.
+    
+    try {
+      const formData = new FormData();
+      formData.append("session_id", SESSION_ID);
+      formData.append("audio", audioBlob, "voice_message.webm");
+
+      const resp = await fetch(`${API_BASE}/chat/audio`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      hideTyping();
+      
+      if (data.transcript) {
+        appendMessage('user', `🎤 ${data.transcript}`);
+      }
+      appendMessage('bot', data.reply, data.provider);
+      
+    } catch (err) {
+      hideTyping();
+      appendMessage('bot', `⚠️ Error uploading audio: ${err.message}`);
     } finally {
       setBusy(false);
     }

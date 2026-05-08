@@ -12,11 +12,12 @@ from __future__ import annotations
 import uuid
 
 import structlog
-from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, status, UploadFile, File, Form
 from fastapi.responses import FileResponse, HTMLResponse
 
 from app.models import WebChatMessage, WebChatResponse
 from app.services.message_normalizer import MessageNormalizer
+from app.services.audio_handler import AudioHandler
 
 log = structlog.get_logger(__name__)
 router = APIRouter(tags=["Web Chat"])
@@ -56,6 +57,41 @@ async def chat_rest(body: WebChatMessage, request: Request):
         session_id=body.session_id,
         reply=reply,
         provider=provider.value if provider else None,
+    )
+
+
+@router.post("/chat/audio", response_model=WebChatResponse, status_code=status.HTTP_200_OK)
+async def chat_audio(request: Request, session_id: str = Form(...), audio: UploadFile = File(...)):
+    """
+    Accepts an audio file from the web widget, transcribes it locally,
+    and returns the LLM's text reply.
+    """
+    audio_bytes = await audio.read()
+    
+    audio_handler = AudioHandler()
+    try:
+        transcript = await audio_handler._run_whisper(audio_bytes)
+    finally:
+        await audio_handler.aclose()
+
+    if not transcript:
+        return WebChatResponse(
+            session_id=session_id,
+            reply="Sorry, I could not transcribe the audio. Please try again."
+        )
+
+    workflow = request.app.state.workflow
+    message = MessageNormalizer.from_web(session_id=session_id, text=transcript)
+    result = await workflow.run(message)
+    
+    reply = result.get("llm_response", "I'm having trouble right now. Please try again.")
+    provider = result.get("provider_used")
+
+    return WebChatResponse(
+        session_id=session_id,
+        reply=reply,
+        provider=provider.value if provider else None,
+        transcript=transcript,
     )
 
 
