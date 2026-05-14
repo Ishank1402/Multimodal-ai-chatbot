@@ -71,6 +71,12 @@ async def chat_audio(request: Request, session_id: str = Form(...), audio: Uploa
     audio_handler = AudioHandler()
     try:
         transcript = await audio_handler._run_whisper(audio_bytes)
+    except Exception as e:
+        import traceback
+        return WebChatResponse(
+            session_id=session_id,
+            reply=f"Backend Error: {traceback.format_exc()}"
+        )
     finally:
         await audio_handler.aclose()
 

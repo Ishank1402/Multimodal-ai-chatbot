@@ -1,6 +1,6 @@
 """
 app/models.py — Shared Pydantic models used across the application.
-All incoming messages (Telegram, Web) are normalised into
+All incoming messages are normalised into
 a single `NormalizedMessage` before reaching the LangGraph workflow.
 """
 
@@ -17,7 +17,6 @@ from pydantic import BaseModel, Field
 # =============================================================================
 
 class MessageChannel(str, Enum):
-    TELEGRAM = "telegram"
     WEB = "web"
 
 
@@ -47,7 +46,6 @@ class NormalizedMessage(BaseModel):
     session_id: str                       # Used as the LangGraph thread_id
     text: Optional[str] = None            # Populated for text msgs or after STT
     audio_url: Optional[str] = None       # Raw audio URL before transcription
-    audio_file_id: Optional[str] = None   # Telegram file_id for voice notes
     raw_payload: dict[str, Any] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 

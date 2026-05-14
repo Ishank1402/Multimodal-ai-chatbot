@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.graph.workflow import ChatWorkflow
-from app.routers import telegram, webchat
+from app.routers import webchat
 from app.services.audio_handler import AudioHandler
 from app.services.llm_chain import LLMService
 from app.services.monitoring import configure_langsmith
@@ -86,7 +86,7 @@ async def lifespan(app: FastAPI):
 # =============================================================================
 
 app = FastAPI(
-    title="AI Chatbot — Telegram / Web",
+    title="AI Chatbot — Web",
     description="Multi-channel AI chatbot powered by LangGraph, Groq, and Gemini.",
     version="1.0.0",
     lifespan=lifespan,
@@ -107,7 +107,6 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ── Routers ───────────────────────────────────────────────────────────────────
-app.include_router(telegram.router)
 app.include_router(webchat.router)
 
 

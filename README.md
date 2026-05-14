@@ -1,6 +1,6 @@
 # 🤖 Multimodal AI Chatbot
 
-A production-ready, multi-channel AI chatbot built with **FastAPI**, **LangGraph**, **Groq (Llama 3)**, **Google Gemini**, **ChromaDB** (RAG), **SQLite**, and **Whisper** (local STT).
+A production-ready AI chatbot built with **FastAPI**, **LangGraph**, **Groq (Llama 3)**, **Google Gemini**, **ChromaDB** (RAG), **SQLite**, and **Whisper** (local STT).
 
 ---
 
@@ -8,33 +8,32 @@ A production-ready, multi-channel AI chatbot built with **FastAPI**, **LangGraph
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│                        FastAPI App                          │
+│                        FastAPI App                         │
 │                                                            │
-│  ┌──────────────┐                    ┌──────────────────┐ │
-│  │  /webhook/   │                    │      /chat       │ │
-│  │  telegram    │                    │  (REST + WS)     │ │
-│  └──────┬───────┘                    └────────┬─────────┘ │
-│         │                                     │           │
-│         └─────────────────────────────────────┘           │
-│                           │                               │
-│                  MessageNormalizer                        │
-│                  (unified format)                         │
-│                           │                               │
-│                  ┌────────▼────────┐                      │
-│                  │  AudioHandler   │  (Whisper STT)       │
-│                  └────────┬────────┘                      │
-│                           │                               │
-│              ┌────────────▼────────────┐                  │
+│                  ┌─────────────────────────┐               │
+│                  │      /chat              │               │
+│                  │  (REST + WS)            │               │
+│                  └────────┬────────────────┘               │
+│                           │                                │
+│                           │                                │
+│                  MessageNormalizer                         │
+│                  (unified format)                          │
+│                           │                                │
+│                  ┌────────▼────────┐                       │
+│                  │  AudioHandler   │  (Whisper STT)        │
+│                  └────────┬────────┘                       │
+│                           │                                │
+│              ┌────────────▼────────────┐                   │
 │              │     LangGraph Workflow   │                  │
-│              │  load_history           │                  │
-│              │       ↓                 │                  │
-│              │  rag_lookup (ChromaDB)  │                  │
-│              │       ↓                 │                  │
-│              │  generate_response      │                  │
-│              │    (Groq / Gemini)      │                  │
-│              │       ↓                 │                  │
-│              │  save_history (SQLite)  │                  │
-│              └─────────────────────────┘                  │
+│              │  load_history           │                   │
+│              │       ↓                 │                   │
+│              │  rag_lookup (ChromaDB)  │                   │
+│              │       ↓                 │                   │ 
+│              │  generate_response      │                   │
+│              │    (Groq / Gemini)      │                   │
+│              │       ↓                 │                   │
+│              │  save_history (SQLite)  │                   │
+│              └─────────────────────────┘                   │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -56,7 +55,6 @@ chatbot-project/
 │   ├── models.py                  # Shared Pydantic models
 │   │
 │   ├── routers/
-│   │   ├── telegram.py            # POST /webhook/telegram
 │   │   └── webchat.py             # POST /chat  +  WS /ws/{session_id}
 │   │
 │   ├── services/
@@ -136,32 +134,12 @@ Edit `scripts/init_chroma.py` to add your own FAQ content.
 |---|---|
 | `GROQ_API_KEY` | https://console.groq.com/keys |
 | `GOOGLE_API_KEY` | https://aistudio.google.com/app/apikey |
-| `TELEGRAM_BOT_TOKEN` | @BotFather on Telegram |
-
----
-
-## 🌐 Webhook Setup
-
-### Telegram
-
-```bash
-curl -X POST "https://api.telegram.org/bot{YOUR_TOKEN}/setWebhook" \
-     -H "Content-Type: application/json" \
-     -d '{"url": "https://your-domain.com/webhook/telegram"}'
-```
-
-### Local development with ngrok
-
-```bash
-ngrok http 8000
-# Use the https:// URL as your webhook base
-```
 
 ---
 
 ## 🗣️ Voice Message Support
 
-Voice notes from Telegram are automatically:
+Voice notes sent via web widget are automatically:
 1. Downloaded from the platform's CDN
 2. Transcribed locally using OpenAI Whisper (`base` model by default)
 3. Treated as text messages in the LangGraph workflow

@@ -70,19 +70,3 @@ services:
       start_period: 10s
       retries: 3
 
-  # ---------------------------------------------------------------------------
-  # (Optional) ngrok — expose local webhooks to the internet for development
-  # Uncomment when testing Telegram webhooks locally.
-  # ---------------------------------------------------------------------------
-  # ngrok:
-  #   image: ngrok/ngrok:latest
-  #   container_name: chatbot-ngrok
-  #   environment:
-  #     - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-  #   command: http app:8000 --log=stdout
-  #   ports:
-  #     - "4040:4040"   # ngrok web UI
-  #   depends_on:
-  #     - app
-  #   networks:
-  #     - chatbot-net

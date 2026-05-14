@@ -4,7 +4,9 @@ Uses pydantic-settings for type-safe, validated configuration.
 """
 
 from functools import lru_cache
+# pyrefly: ignore [missing-import]
 from pydantic import Field, field_validator
+# pyrefly: ignore [missing-import]
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,10 +29,6 @@ class Settings(BaseSettings):
     google_api_key: str = ""
     gemini_model: str = "gemini-2.0-flash"
     llm_provider: str = "groq"  # groq | gemini | fallback
-
-    # ── Telegram ─────────────────────────────────────────────────────────────
-    telegram_bot_token: str = ""
-    telegram_webhook_url: str = ""
 
     # ── Whisper ──────────────────────────────────────────────────────────────
     whisper_model_size: str = "base"

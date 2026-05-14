@@ -1,7 +1,7 @@
 """
 app/services/audio_handler.py
 ──────────────────────────────
-Downloads voice notes from Telegram and transcribes them
+Downloads voice notes from Web and transcribes them
 using OpenAI Whisper (running locally, no API calls).
 
 Flow:
@@ -21,6 +21,12 @@ from typing import Optional
 
 import httpx
 import structlog
+
+# Dynamically add the winget FFmpeg installation to the system PATH
+# to avoid requiring an IDE/system restart after installation.
+ffmpeg_path = r"C:\Users\ISHAN KUNDRA\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.1-full_build\bin"
+if ffmpeg_path not in os.environ.get("PATH", ""):
+    os.environ["PATH"] = f"{ffmpeg_path};" + os.environ.get("PATH", "")
 
 from app.config import settings
 from app.models import MessageChannel, NormalizedMessage
@@ -77,39 +83,10 @@ class AudioHandler:
     # ─────────────────────────── Download helpers ─────────────────────────────
 
     async def _download_audio(self, message: NormalizedMessage) -> Optional[bytes]:
-        if message.channel == MessageChannel.TELEGRAM:
-            return await self._download_telegram_voice(message.audio_file_id)
-        elif message.audio_url:
+        if message.audio_url:
             return await self._download_url(message.audio_url)
         log.warning("audio.no_source", channel=message.channel)
         return None
-
-    async def _download_telegram_voice(self, file_id: Optional[str]) -> Optional[bytes]:
-        """
-        Two-step Telegram download:
-        1. getFile  → get file_path from Telegram servers
-        2. Download from https://api.telegram.org/file/bot{token}/{file_path}
-        """
-        if not file_id:
-            return None
-        try:
-            base = f"https://api.telegram.org/bot{settings.telegram_bot_token}"
-
-            # Step 1: resolve file_path
-            resp = await self._http.get(f"{base}/getFile", params={"file_id": file_id})
-            resp.raise_for_status()
-            data = resp.json()
-            if not data.get("ok"):
-                log.error("telegram.get_file_failed", response=data)
-                return None
-            file_path = data["result"]["file_path"]
-
-            # Step 2: download binary content
-            download_url = f"https://api.telegram.org/file/bot{settings.telegram_bot_token}/{file_path}"
-            return await self._download_url(download_url)
-        except Exception as exc:
-            log.error("telegram.download_voice_failed", error=str(exc))
-            return None
 
     async def _download_url(
         self, url: str, headers: Optional[dict] = None
